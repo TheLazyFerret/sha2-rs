@@ -4,6 +4,9 @@
 //!
 //! sha256 implementation
 
+use std::fs::File;
+use std::io::{BufReader, Read};
+
 const KCONSTANTS: [u32; 64] = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -57,7 +60,17 @@ fn lower_sigma1(x: u32) -> u32 {
   right_rotation(x, 17) ^ right_rotation(x, 19) ^ (x >> 10)
 }
 
+#[inline]
+fn calculate_schedule(message: &[u32; 64], i: usize) -> u32 {
+  assert!(i > 15 && i < 64);
+  lower_sigma1(message[i - 2])
+    .wrapping_add(message[i - 7])
+    .wrapping_add(lower_sigma0(message[i - 15]))
+    .wrapping_add(message[i - 16])
+}
+
 // Calculate the value of T1
+#[inline]
 fn calculate_t1(message: &[u32; 64], hash: &[u32; 8], iteration: usize) -> u32 {
   assert!(iteration < 64);
   hash[7]
@@ -68,6 +81,7 @@ fn calculate_t1(message: &[u32; 64], hash: &[u32; 8], iteration: usize) -> u32 {
 }
 
 // Calculate the value of T2
+#[inline]
 fn calculate_t2(hash: &[u32; 8], iteration: usize) -> u32 {
   assert!(iteration < 64);
   upper_sigma0(hash[0]).wrapping_add(majority(hash[0], hash[1], hash[2]))
@@ -75,6 +89,43 @@ fn calculate_t2(hash: &[u32; 8], iteration: usize) -> u32 {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Sha256Error {}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// auxiliar struct that holds all the params used in the iteration for parsing the blocks.
+struct Sha256Iter {
+  bytes_readed: u64,
+  pad: bool,
+  finished: bool,
+  buffer: [u8; 64],
+}
+
+impl Default for Sha256Iter {
+  fn default() -> Self {
+    Sha256Iter {
+      bytes_readed: 0,
+      pad: false,
+      finished: false,
+      buffer: [0; 64],
+    }
+  }
+}
+
+impl Sha256Iter {
+  /// Creates a new instance of the struct
+  pub fn new() -> Self {
+    Sha256Iter::default()
+  }
+
+  /// Parse the buffer into a block
+  pub fn parse(&self) -> [u32; 16] {
+    let mut x: [u32; 16] = [0; 16];
+    for n in 0..16 {
+      let bytes: [u8; 4] = self.buffer[(n * 4)..(n * 4 + 4)].try_into().unwrap();
+      x[n] = u32::from_be_bytes(bytes);
+    }
+    x
+  }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sha256 {
@@ -94,7 +145,68 @@ impl Sha256 {
     Sha256::default()
   }
 
-  pub fn from_file() -> Result<(), Sha256Error> {
-    todo!()
+  pub fn from_file(&mut self, file: File) {
+    let mut bufre = BufReader::new(file);
+    let mut iter = Sha256Iter::new();
+    while !iter.finished {
+      Sha256::get_next_block(&mut bufre, &mut iter);
+      Sha256::compute_block(self, &iter.parse());
+    }
+  }
+
+  /// Load a new unparsed block into the auxiliar iteration struct
+  fn get_next_block(bufre: &mut BufReader<File>, iter: &mut Sha256Iter) {
+    iter.buffer = [0; 64];
+    let bytes_readed =
+      Read::read(bufre, &mut iter.buffer).expect("unexpected error reading the file");
+    iter.bytes_readed += bytes_readed as u64;
+    // last block
+    if bytes_readed < 56 {
+      if !iter.pad {
+        iter.buffer[bytes_readed] = 0x80;
+        iter.pad = true;
+      }
+      iter.buffer[56..=63].clone_from_slice(&iter.bytes_readed.to_be_bytes());
+      iter.finished = true;
+    }
+    // one block left
+    else if bytes_readed < 64 && !iter.pad {
+      iter.buffer[bytes_readed] = 0x80;
+      iter.pad = true;
+    }
+    // any ammount of blocks left
+  }
+
+  /// Compute the block, return the updated hash value in each iteration
+  fn compute_block(&mut self, block: &[u32; 16]) {
+    let mut message: [u32; 64] = [0; 64];
+    message[0..16].copy_from_slice(block);
+    // Message schedule
+    for n in 16..64 {
+      message[n] = calculate_schedule(&message, n);
+    }
+    let mut aux_hash = self.hash; // copy
+    // compute working variables
+    for n in 0..64 {
+      let t1 = calculate_t1(&message, &aux_hash, n);
+      let t2 = calculate_t2(&aux_hash, n);
+      aux_hash[7] = aux_hash[6];
+      aux_hash[6] = aux_hash[5];
+      aux_hash[5] = aux_hash[4];
+      aux_hash[4] = aux_hash[3].wrapping_add(t1);
+      aux_hash[3] = aux_hash[2];
+      aux_hash[2] = aux_hash[1];
+      aux_hash[1] = aux_hash[0];
+      aux_hash[0] = t1.wrapping_add(t2);
+    }
+    // compute intermedial hash
+    self.hash[0] = aux_hash[0].wrapping_add(self.hash[0]);
+    self.hash[1] = aux_hash[1].wrapping_add(self.hash[1]);
+    self.hash[2] = aux_hash[2].wrapping_add(self.hash[2]);
+    self.hash[3] = aux_hash[3].wrapping_add(self.hash[3]);
+    self.hash[4] = aux_hash[4].wrapping_add(self.hash[4]);
+    self.hash[5] = aux_hash[5].wrapping_add(self.hash[5]);
+    self.hash[6] = aux_hash[6].wrapping_add(self.hash[6]);
+    self.hash[7] = aux_hash[7].wrapping_add(self.hash[7]);
   }
 }
