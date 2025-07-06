@@ -4,6 +4,8 @@
 //!
 //! sha256 implementation
 
+use std::fmt;
+use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
@@ -88,9 +90,6 @@ fn calculate_t2(hash: &[u32; 8], iteration: usize) -> u32 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Sha256Error {}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
 /// auxiliar struct that holds all the params used in the iteration for parsing the blocks.
 struct Sha256Iter {
   bytes_readed: u64,
@@ -139,6 +138,18 @@ impl Default for Sha256 {
   }
 }
 
+impl fmt::Display for Sha256 {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut a = String::new();
+    for byte in self.hash {
+      let mut aux = String::new();
+      write!(&mut aux, "{:0<8x}", byte).expect("error formatting");
+      a.push_str(&aux);
+    }
+    write!(f, "{a}")
+  }
+}
+
 impl Sha256 {
   /// Creates a new instance
   pub fn new() -> Self {
@@ -166,7 +177,7 @@ impl Sha256 {
         iter.buffer[bytes_readed] = 0x80;
         iter.pad = true;
       }
-      iter.buffer[56..=63].clone_from_slice(&iter.bytes_readed.to_be_bytes());
+      iter.buffer[56..=63].clone_from_slice(&(iter.bytes_readed * 8).to_be_bytes());
       iter.finished = true;
     }
     // one block left
