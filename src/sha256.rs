@@ -15,11 +15,11 @@ const KCONSTANTS: [u32; 64] = [
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
-const INITHASH: [u32; 8] = [
+const KINITHASH: [u32; 8] = [
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ];
 
-const U32SIZE: usize = size_of::<u32>() * 8;
+const U32SIZE: usize = u32::BITS as usize;
 
 #[inline]
 fn right_rotation(number: u32, n: usize) -> u32 {
@@ -39,48 +39,62 @@ fn majority(x: u32, y: u32, z: u32) -> u32 {
 
 #[inline]
 fn upper_sigma0(x: u32) -> u32 {
-  BasicFunctions::right_rotation(&x, 2)
-    ^ BasicFunctions::right_rotation(&x, 13)
-    ^ BasicFunctions::right_rotation(&x, 22)
+  right_rotation(x, 2) ^ right_rotation(x, 13) ^ right_rotation(x, 22)
 }
 
 #[inline]
 fn upper_sigma1(x: u32) -> u32 {
-  BasicFunctions::right_rotation(&x, 6)
-    ^ BasicFunctions::right_rotation(&x, 11)
-    ^ BasicFunctions::right_rotation(&x, 25)
+  right_rotation(x, 6) ^ right_rotation(x, 11) ^ right_rotation(x, 25)
 }
 
 #[inline]
 fn lower_sigma0(x: u32) -> u32 {
-  BasicFunctions::right_rotation(&x, 7)
-    ^ BasicFunctions::right_rotation(&x, 18)
-    ^ BasicFunctions::right_shift(&x, 3)
+  right_rotation(x, 7) ^ right_rotation(x, 18) ^ (x >> 3)
 }
 
 #[inline]
 fn lower_sigma1(x: u32) -> u32 {
-  BasicFunctions::right_rotation(&x, 17)
-    ^ BasicFunctions::right_rotation(&x, 19)
-    ^ BasicFunctions::right_shift(&x, 10)
+  right_rotation(x, 17) ^ right_rotation(x, 19) ^ (x >> 10)
 }
 
 // Calculate the value of T1
 fn calculate_t1(message: &[u32; 64], hash: &[u32; 8], iteration: usize) -> u32 {
   assert!(iteration < 64);
-  let x: u32 = {
-    hash[7]
-      .wrapping_add(upper_sigma1(hash[4]))
-      .wrapping_add(choose(hash[4], hash[5], hash[6]))
-      .wrapping_add(KCONSTANTS[iteration])
-      .wrapping_add(message[iteration])
-  };
-  return x;
+  hash[7]
+    .wrapping_add(upper_sigma1(hash[4]))
+    .wrapping_add(choose(hash[4], hash[5], hash[6]))
+    .wrapping_add(KCONSTANTS[iteration])
+    .wrapping_add(message[iteration])
 }
 
 // Calculate the value of T2
 fn calculate_t2(hash: &[u32; 8], iteration: usize) -> u32 {
   assert!(iteration < 64);
-  let x: u32 = { upper_sigma0(hash[0]).wrapping_add(majority(hash[0], hash[1], hash[2])) };
-  return x;
+  upper_sigma0(hash[0]).wrapping_add(majority(hash[0], hash[1], hash[2]))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Sha256Error {}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sha256 {
+  hash: [u32; 8],
+}
+
+/// Default for Sha256
+impl Default for Sha256 {
+  fn default() -> Self {
+    Sha256 { hash: KINITHASH }
+  }
+}
+
+impl Sha256 {
+  /// Creates a new instance
+  pub fn new() -> Self {
+    Sha256::default()
+  }
+
+  pub fn from_file() -> Result<(), Sha256Error> {
+    todo!()
+  }
 }
