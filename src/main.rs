@@ -11,8 +11,5 @@ use std::fs::File;
 use crate::sha256::Sha256;
 
 fn main() {
-  let file = File::open("../kubuntu-25.04-desktop-amd64.iso").expect("error opening");
-  let mut x = Sha256::new();
-  x.from_file(file);
-  println!("{x}");
+
 }
