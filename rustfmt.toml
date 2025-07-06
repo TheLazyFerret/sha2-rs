@@ -1,0 +1,14 @@
+# Set the edition.
+edition = "2024"
+# Set the max width for each line.
+max_width = 100
+# When splitting multiple operations, put the operators at the end of the line (Unstable for now).
+# binop_separator = "Back"
+# Split the args horizontally.
+fn_params_layout = "Compressed"
+# Set the number of spaces per tab.
+tab_spaces = 2
+# More clear way to see match statements.
+match_arm_leading_pipes = "Always"
+# Put a comma after each match statement.
+match_block_trailing_comma = true
