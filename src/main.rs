@@ -4,4 +4,6 @@
 //!
 //! Main source file
 
+pub mod sha256;
+
 fn main() {}
