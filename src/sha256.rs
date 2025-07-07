@@ -132,13 +132,6 @@ pub struct Sha256 {
   hash: [u32; 8],
 }
 
-/// Default for Sha256
-impl Default for Sha256 {
-  fn default() -> Self {
-    Sha256 { hash: KINITHASH }
-  }
-}
-
 /// impl for printing, also derives into to_string
 impl fmt::Display for Sha256 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -153,23 +146,37 @@ impl fmt::Display for Sha256 {
 }
 
 impl Sha256 {
-  /// Creates a new instance
-  pub fn new() -> Self {
-    Sha256::default()
+  /// initialize the struct
+  fn init() -> Self {
+    Sha256 { hash: KINITHASH }
   }
 
   /// "Main function" that get the sha256 from a file descriptor
-  pub fn from_file(&mut self, file: File) {
+  pub fn from_file(file: File) -> Self {
+    let mut hash = Sha256::init();
     let mut bufre = BufReader::with_capacity(1048576, file); // 500mb
     let mut iter = Sha256Iter::new();
     while !iter.finished {
       Sha256::get_next_block(&mut bufre, &mut iter);
-      Sha256::compute_block(self, &iter.parse());
+      Sha256::compute_block(&mut hash, &iter.parse());
     }
+    hash
+  }
+
+  /// "Main function" that get the sha256 from an slice of bytes
+  pub fn from_bytes(bytes: &[u8]) -> Self {
+    let mut hash = Sha256::init();
+    let mut bufre = BufReader::new(bytes);
+    let mut iter = Sha256Iter::new();
+    while !iter.finished {
+      Sha256::get_next_block(&mut bufre, &mut iter);
+      Sha256::compute_block(&mut hash, &iter.parse());
+    }
+    hash
   }
 
   /// Load a new unparsed block into the auxiliar iteration struct
-  fn get_next_block(bufre: &mut BufReader<File>, iter: &mut Sha256Iter) {
+  fn get_next_block<T: std::io::Read>(bufre: &mut BufReader<T>, iter: &mut Sha256Iter) {
     iter.buffer = [0; 64];
     let bytes_readed =
       Read::read(bufre, &mut iter.buffer).expect("unexpected error reading the file");
@@ -192,14 +199,14 @@ impl Sha256 {
   }
 
   /// Compute the block, return the updated hash value in each iteration
-  fn compute_block(&mut self, block: &[u32; 16]) {
+  fn compute_block(hash: &mut Sha256, block: &[u32; 16]) {
     let mut message: [u32; 64] = [0; 64];
     message[0..16].copy_from_slice(block);
     // Message schedule
     for n in 16..64 {
       message[n] = calculate_schedule(&message, n);
     }
-    let mut aux_hash = self.hash; // copy
+    let mut aux_hash = hash.hash; // copy
     // compute working variables
     for n in 0..64 {
       let t1 = calculate_t1(&message, &aux_hash, n);
@@ -214,13 +221,13 @@ impl Sha256 {
       aux_hash[0] = t1.wrapping_add(t2);
     }
     // compute intermedial hash
-    self.hash[0] = aux_hash[0].wrapping_add(self.hash[0]);
-    self.hash[1] = aux_hash[1].wrapping_add(self.hash[1]);
-    self.hash[2] = aux_hash[2].wrapping_add(self.hash[2]);
-    self.hash[3] = aux_hash[3].wrapping_add(self.hash[3]);
-    self.hash[4] = aux_hash[4].wrapping_add(self.hash[4]);
-    self.hash[5] = aux_hash[5].wrapping_add(self.hash[5]);
-    self.hash[6] = aux_hash[6].wrapping_add(self.hash[6]);
-    self.hash[7] = aux_hash[7].wrapping_add(self.hash[7]);
+    hash.hash[0] = aux_hash[0].wrapping_add(hash.hash[0]);
+    hash.hash[1] = aux_hash[1].wrapping_add(hash.hash[1]);
+    hash.hash[2] = aux_hash[2].wrapping_add(hash.hash[2]);
+    hash.hash[3] = aux_hash[3].wrapping_add(hash.hash[3]);
+    hash.hash[4] = aux_hash[4].wrapping_add(hash.hash[4]);
+    hash.hash[5] = aux_hash[5].wrapping_add(hash.hash[5]);
+    hash.hash[6] = aux_hash[6].wrapping_add(hash.hash[6]);
+    hash.hash[7] = aux_hash[7].wrapping_add(hash.hash[7]);
   }
 }
