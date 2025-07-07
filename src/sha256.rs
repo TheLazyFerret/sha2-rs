@@ -118,15 +118,16 @@ impl Sha256Iter {
   /// Parse the buffer into a block
   pub fn parse(&self) -> [u32; 16] {
     let mut x: [u32; 16] = [0; 16];
-    for n in 0..16 {
-      let bytes: [u8; 4] = self.buffer[(n * 4)..(n * 4 + 4)].try_into().unwrap();
-      x[n] = u32::from_be_bytes(bytes);
+    for n in x.iter_mut().enumerate() {
+      let bytes: [u8; 4] = self.buffer[(n.0 * 4)..(n.0 * 4 + 4)].try_into().unwrap();
+      *n.1 = u32::from_be_bytes(bytes);
     }
     x
   }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+/// Main struct, representing a hash
 pub struct Sha256 {
   hash: [u32; 8],
 }
@@ -138,6 +139,7 @@ impl Default for Sha256 {
   }
 }
 
+/// impl for printing, also derives into to_string
 impl fmt::Display for Sha256 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut a = String::new();
@@ -156,8 +158,9 @@ impl Sha256 {
     Sha256::default()
   }
 
+  /// "Main function" that get the sha256 from a file descriptor
   pub fn from_file(&mut self, file: File) {
-    let mut bufre = BufReader::new(file);
+    let mut bufre = BufReader::with_capacity(1048576, file); // 500mb
     let mut iter = Sha256Iter::new();
     while !iter.finished {
       Sha256::get_next_block(&mut bufre, &mut iter);
