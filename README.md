@@ -1,17 +1,21 @@
-# Sha2-rs
-Self learning and didactic implementation of the sha256 algorithm.
-
+# SHA-rs
 ## About
-This project is an improved version of my original SHA-256 implementation, written in a more idiomatic and readable Rust style.
-While it is still far from the performance of production-grade implementations like GNU's one, I’m proud of my version. Looking for optimizing in the future.
+Library that implement multiple secure hash algorithms functions in rust. 
 
 ## Usage
-```sh
-cargo run --release -- [path]
-```
+- The library count with a struct for function implemented
+- inside the trail Hash there are two functions that return a struct
+  - from_file(file : & fs::File)
+  - from_string(string : & str)
 
-## Requirements
-- [rustc](https://www.rust-lang.org/) >= 1.80.0
+## Planned functions implementations
+- [x]  SHA256
+- [x]  SHA512
+
+## Planned struct implementations
+- [x] print
+- [x] to_string
+- [x] to_bytes
 
 ## License
-[MIT](https://opensource.org/license/mit)
+[MIT](https://choosealicense.com/licenses/mit/)
